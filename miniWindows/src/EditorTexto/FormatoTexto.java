@@ -113,3 +113,4 @@ public class FormatoTexto {
         return s.replace("\\;", ";").replace("\\\\", "\\");
     }
 }
+

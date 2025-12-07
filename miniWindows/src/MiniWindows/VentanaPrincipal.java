@@ -1,7 +1,7 @@
 package MiniWindows;
 
 import CMD.GUICMD;
-import EditorTexto.GUIEditor;
+import EditorTexto.EditorGUI;
 import Sistema.MiniWindowsClass;
 import Modelo.Archivo;
 import Sistema.SistemaArchivos;
@@ -29,10 +29,20 @@ public class VentanaPrincipal extends JFrame {
         this.usuarioActual = usuario;
         this.sistema = sistema;
         inicializarComponentes();
-        configurarVentana();
     }
 
     private void inicializarComponentes() {
+        setUndecorated(true);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        setLocationRelativeTo(null);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                salir();
+            }
+        });
+
         crearBarraMenu();
         panelEscritorio = new JPanel();
         panelEscritorio.setLayout(new BorderLayout());
@@ -120,27 +130,14 @@ public class VentanaPrincipal extends JFrame {
         setJMenuBar(barraMenu);
     }
 
-    private void configurarVentana() {
-        setTitle("Mini-Windows - " + usuarioActual.getUsername());
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        setLocationRelativeTo(null);
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                salir();
-            }
-        });
-    }
-
     private void abrirEditor() {
         try {
-            new GUIEditor(sistema);
+            new EditorGUI(sistema);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
-                "Error al abrir el editor de texto: " + e.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
+                    "Error al abrir el editor de texto: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -174,14 +171,26 @@ public class VentanaPrincipal extends JFrame {
 
     private Archivo obtenerCarpetaMisImagenes() {
         SistemaArchivos sa = sistema.getSistemaArchivos();
-        if (sa == null) return null;
+        if (sa == null) {
+            return null;
+        }
         Archivo carpeta = sa.obtenerArchivoEnRuta("Mis Imagenes", usuarioActual.getUsername());
-        if (carpeta != null && carpeta.isEsCarpeta()) return carpeta;
+        if (carpeta != null && carpeta.isEsCarpeta()) {
+            return carpeta;
+        }
         try {
-            try { sa.crearCarpetaUsuario(usuarioActual.getUsername()); } catch (Exception ignore) {}
-            try { sa.crearCarpetaEnRuta("Mis Imagenes", usuarioActual.getUsername()); } catch (Exception ignore) {}
+            try {
+                sa.crearCarpetaUsuario(usuarioActual.getUsername());
+            } catch (Exception ignore) {
+            }
+            try {
+                sa.crearCarpetaEnRuta("Mis Imagenes", usuarioActual.getUsername());
+            } catch (Exception ignore) {
+            }
             carpeta = sa.obtenerArchivoEnRuta("Mis Imagenes", usuarioActual.getUsername());
-            if (carpeta != null && carpeta.isEsCarpeta()) return carpeta;
+            if (carpeta != null && carpeta.isEsCarpeta()) {
+                return carpeta;
+            }
         } catch (Exception e) {
         }
         return null;
@@ -214,7 +223,6 @@ public class VentanaPrincipal extends JFrame {
         }
         JOptionPane.showMessageDialog(this, "No se encontraron imágenes soportadas en 'Mis Imagenes'.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
     }
-
 
     private void gestionarUsuarios() {
         JOptionPane.showMessageDialog(this,
@@ -262,3 +270,4 @@ public class VentanaPrincipal extends JFrame {
         }
     }
 }
+

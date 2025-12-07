@@ -1,7 +1,8 @@
 package Main;
 
-import MiniWindows.PantallaLogin;
+import MiniWindows.VentanaInicio;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  *
@@ -9,10 +10,17 @@ import javax.swing.SwingUtilities;
  */
 public class Main {
 
-   public static void main(String[] args) {       
+    public static void main(String[] args) {
+
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         SwingUtilities.invokeLater(() -> {
-            PantallaLogin login = new PantallaLogin();
-            login.setVisible(true);
+            SwingUtilities.invokeLater(() -> new VentanaInicio().MostrarVenatanaInicio());
+
         });
     }
 }

@@ -1,5 +1,7 @@
 package ReproductorMusical;
 
+import java.awt.*;
+import java.awt.image.*;
 import javax.swing.*;
 
 /**
@@ -66,12 +68,12 @@ public class Cancion {
     }
 
     private ImageIcon imgDefault() {
-        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(50, 50, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        BufferedImage img = new BufferedImage(50, 50, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g2d = img.createGraphics();
-        g2d.setColor(new java.awt.Color(64, 64, 64));
+        g2d.setColor(new Color(255, 20, 147));
         g2d.fillRect(0, 0, 50, 50);
-        g2d.setColor(java.awt.Color.WHITE);
-        g2d.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 20));
+        g2d.setColor(Color.WHITE);
+        g2d.setFont(new java.awt.Font("Arial", Font.BOLD, 20));
         g2d.drawString("♪", 18, 32);
         g2d.dispose();
         return new ImageIcon(img);

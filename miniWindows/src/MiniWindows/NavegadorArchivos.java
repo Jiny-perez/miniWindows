@@ -1,24 +1,26 @@
 package MiniWindows;
 
+import EditorTexto.EditorGUI;
 import Sistema.MiniWindowsClass;
 import Sistema.SistemaArchivos;
 import Modelo.Archivo;
 import Modelo.Usuario;
 import Excepciones.*;
+import ReproductorMusical.GUIReproductorMusica;
 import VisorImagenes.GUIVisorImagenes;
 import VisorImagenes.VisorImagenes;
 
 import javax.swing.*;
 import javax.swing.tree.*;
 import javax.swing.table.*;
-
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-
-import java.io.File;
+import java.io.*;
 import java.io.IOException;
+import java.nio.file.*;
+import java.util.Calendar;
 
 /**
  *
@@ -29,7 +31,9 @@ public class NavegadorArchivos extends JFrame {
     private MiniWindowsClass sistema;
     private SistemaArchivos sistemaArchivos;
     private Usuario usuarioActual;
-    private ArrayList<Archivo> contenidoActual;
+    private EditorGUI editorTextoInstancia = null;
+    private GUIReproductorMusica reproductorInstancia = null;
+
     private JTree arbolArchivos;
     private DefaultTreeModel modeloArbol;
     private DefaultMutableTreeNode nodoRaiz;
@@ -45,6 +49,9 @@ public class NavegadorArchivos extends JFrame {
     private JButton btnRenombrar;
     private JButton btnActualizar;
 
+    private ArrayList<Archivo> contenidoActual;
+    private ArrayList<Archivo> archivosMostrados = new ArrayList<>();
+
     public NavegadorArchivos(JFrame parent, Usuario usuario, MiniWindowsClass sistema) {
         super("Navegador de Archivos - Mini-Windows");
         this.usuarioActual = usuario;
@@ -58,10 +65,13 @@ public class NavegadorArchivos extends JFrame {
     private void initComponents() {
         setLayout(new BorderLayout());
         getContentPane().setBackground(Color.WHITE);
+
         JPanel panelSuperior = crearPanelSuperior();
         add(panelSuperior, BorderLayout.NORTH);
+
         JSplitPane splitPane = crearPanelCentral();
         add(splitPane, BorderLayout.CENTER);
+
         JPanel panelInferior = crearPanelInferior();
         add(panelInferior, BorderLayout.SOUTH);
     }
@@ -78,17 +88,15 @@ public class NavegadorArchivos extends JFrame {
 
         btnNuevaCarpeta = crearBotonHerramienta("Nueva Carpeta");
         btnNuevaCarpeta.addActionListener(e -> crearNuevaCarpeta());
-
         btnSubirArchivo = crearBotonHerramienta("Subir Archivo");
         btnSubirArchivo.addActionListener(e -> subirArchivo());
 
         btnEliminar = crearBotonHerramienta("Eliminar");
         btnEliminar.addActionListener(e -> eliminarSeleccionado());
-
         btnRenombrar = crearBotonHerramienta("Renombrar");
         btnRenombrar.addActionListener(e -> renombrarSeleccionado());
-
         btnActualizar = crearBotonHerramienta("Actualizar");
+
         btnActualizar.addActionListener(e -> actualizarVista());
 
         barraHerramientas.add(btnNuevaCarpeta);
@@ -102,11 +110,9 @@ public class NavegadorArchivos extends JFrame {
         JPanel panelRuta = new JPanel(new BorderLayout());
         panelRuta.setBackground(Color.WHITE);
         panelRuta.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-
         JLabel lblRuta = new JLabel("Ubicación:");
         lblRuta.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblRuta.setForeground(new Color(100, 100, 100));
-
         lblRutaActual = new JLabel(sistemaArchivos.getRutaActual());
         lblRutaActual.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblRutaActual.setForeground(new Color(0, 102, 204));
@@ -118,9 +124,9 @@ public class NavegadorArchivos extends JFrame {
 
         JPanel panelOrden = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         panelOrden.setBackground(Color.WHITE);
-
         JLabel lblOrden = new JLabel("Ordenar por:");
         lblOrden.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+
         String[] opciones = {"Nombre", "Fecha", "Tipo", "Tamaño"};
         comboOrden = new JComboBox<>(opciones);
         comboOrden.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -134,9 +140,7 @@ public class NavegadorArchivos extends JFrame {
         btnAscendente.setToolTipText("Orden Ascendente");
         btnAscendente.setBackground(Color.WHITE);
         btnAscendente.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
-        btnAscendente.addActionListener(e -> {
-            ordenarTabla(true);
-        });
+        btnAscendente.addActionListener(e -> ordenarTabla(true));
 
         JButton btnDescendente = new JButton("Z-A");
         btnDescendente.setFont(new Font("Segoe UI", Font.BOLD, 10));
@@ -146,18 +150,14 @@ public class NavegadorArchivos extends JFrame {
         btnDescendente.setToolTipText("Orden Descendente");
         btnDescendente.setBackground(Color.WHITE);
         btnDescendente.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1));
-        btnDescendente.addActionListener(e -> {
-            ordenarTabla(false);
-        });
+        btnDescendente.addActionListener(e -> ordenarTabla(false));
 
         panelOrden.add(lblOrden);
         panelOrden.add(comboOrden);
         panelOrden.add(btnAscendente);
         panelOrden.add(btnDescendente);
-
         panelRuta.add(panelRutaTexto, BorderLayout.WEST);
         panelRuta.add(panelOrden, BorderLayout.EAST);
-
         panel.add(barraHerramientas, BorderLayout.NORTH);
         panel.add(panelRuta, BorderLayout.SOUTH);
 
@@ -174,8 +174,8 @@ public class NavegadorArchivos extends JFrame {
                 BorderFactory.createLineBorder(new Color(200, 200, 200), 1),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
+
         btn.addMouseListener(new MouseAdapter() {
-            @Override
             public void mouseEntered(MouseEvent e) {
                 btn.setBackground(new Color(230, 240, 255));
                 btn.setBorder(BorderFactory.createCompoundBorder(
@@ -184,7 +184,6 @@ public class NavegadorArchivos extends JFrame {
                 ));
             }
 
-            @Override
             public void mouseExited(MouseEvent e) {
                 btn.setBackground(Color.WHITE);
                 btn.setBorder(BorderFactory.createCompoundBorder(
@@ -199,7 +198,6 @@ public class NavegadorArchivos extends JFrame {
     private JSplitPane crearPanelCentral() {
         JPanel panelArbol = new JPanel(new BorderLayout());
         panelArbol.setBackground(Color.WHITE);
-
         nodoRaiz = new DefaultMutableTreeNode("Cargando...");
         modeloArbol = new DefaultTreeModel(nodoRaiz);
         arbolArchivos = new JTree(modeloArbol);
@@ -207,7 +205,6 @@ public class NavegadorArchivos extends JFrame {
         arbolArchivos.setShowsRootHandles(true);
         arbolArchivos.setCellRenderer(new RenderizadorArbol());
         arbolArchivos.setBackground(Color.WHITE);
-
         arbolArchivos.addTreeSelectionListener(e -> {
             DefaultMutableTreeNode nodo = (DefaultMutableTreeNode) arbolArchivos.getLastSelectedPathComponent();
             if (nodo != null && nodo.getUserObject() instanceof Archivo) {
@@ -226,13 +223,11 @@ public class NavegadorArchivos extends JFrame {
                 0,
                 new Font("Segoe UI", Font.BOLD, 11)
         ));
+
         scrollArbol.setBackground(Color.WHITE);
-
         panelArbol.add(scrollArbol, BorderLayout.CENTER);
-
         JPanel panelTabla = new JPanel(new BorderLayout());
         panelTabla.setBackground(Color.WHITE);
-
         String[] columnas = {"Nombre", "Tipo", "Tamaño", "Fecha Modificación"};
         modeloTabla = new DefaultTableModel(columnas, 0) {
             @Override
@@ -249,11 +244,9 @@ public class NavegadorArchivos extends JFrame {
         tablaArchivos.setGridColor(new Color(240, 240, 240));
         tablaArchivos.setSelectionBackground(new Color(230, 240, 255));
         tablaArchivos.setSelectionForeground(Color.BLACK);
-
         tablaArchivos.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
             private ImageIcon iconoCarpeta = crearIconoCarpetaTabla();
 
-            @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
                     boolean isSelected, boolean hasFocus, int row, int column) {
                 super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -274,12 +267,10 @@ public class NavegadorArchivos extends JFrame {
         header.setBackground(new Color(245, 245, 245));
         header.setForeground(Color.BLACK);
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(200, 200, 200)));
-
         tablaArchivos.getColumnModel().getColumn(0).setPreferredWidth(250);
         tablaArchivos.getColumnModel().getColumn(1).setPreferredWidth(100);
         tablaArchivos.getColumnModel().getColumn(2).setPreferredWidth(100);
         tablaArchivos.getColumnModel().getColumn(3).setPreferredWidth(150);
-
         tablaArchivos.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -292,7 +283,6 @@ public class NavegadorArchivos extends JFrame {
         JPopupMenu menuContextual = crearMenuContextual();
         tablaArchivos.setComponentPopupMenu(menuContextual);
         arbolArchivos.setComponentPopupMenu(menuContextual);
-
         JScrollPane scrollTabla = new JScrollPane(tablaArchivos);
         scrollTabla.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createEmptyBorder(),
@@ -301,15 +291,13 @@ public class NavegadorArchivos extends JFrame {
                 0,
                 new Font("Segoe UI", Font.BOLD, 11)
         ));
+
         scrollTabla.setBackground(Color.WHITE);
-
         panelTabla.add(scrollTabla, BorderLayout.CENTER);
-
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelArbol, panelTabla);
         splitPane.setDividerLocation(250);
         splitPane.setOneTouchExpandable(true);
         splitPane.setBorder(BorderFactory.createEmptyBorder());
-
         return splitPane;
     }
 
@@ -338,7 +326,6 @@ public class NavegadorArchivos extends JFrame {
         menu.addSeparator();
         menu.add(itemRenombrar);
         menu.add(itemEliminar);
-
         return menu;
     }
 
@@ -346,13 +333,10 @@ public class NavegadorArchivos extends JFrame {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         panel.setBackground(new Color(245, 245, 245));
         panel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 200, 200)));
-
         lblInfoEstado = new JLabel("Usuario: " + usuarioActual.getUsername() + " | 0 elementos");
         lblInfoEstado.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         lblInfoEstado.setForeground(new Color(100, 100, 100));
-
         panel.add(lblInfoEstado);
-
         return panel;
     }
 
@@ -380,60 +364,164 @@ public class NavegadorArchivos extends JFrame {
         return new ImageIcon(imagen);
     }
 
+    private boolean esAdmin() {
+        try {
+            return usuarioActual != null && "admin".equalsIgnoreCase(usuarioActual.getUsername());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void cargarArbol() {
         DefaultMutableTreeNode raizNode = new DefaultMutableTreeNode("Z:");
         modeloArbol.setRoot(raizNode);
         construirArbolRecursivo(raizNode, "");
+
+        String user = usuarioActual.getUsername().toLowerCase();  
+        String rutaInicial = "Z:\\" + user;
+
+        lblRutaActual.setText(rutaInicial);
+
         arbolArchivos.expandRow(0);
+
+        try {
+            sistemaArchivos.navegarARuta(rutaInicial);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         cargarTabla();
     }
 
-    private void construirArbolRecursivo(DefaultMutableTreeNode nodo, String rutaRelativa) {
-        ArrayList<Archivo> hijos = sistemaArchivos.listarContenidoEnRuta(rutaRelativa);
+    private void construirArbolRecursivo(DefaultMutableTreeNode nodo, String ruta) {
+        String rutaNorm = normalizeRuta(ruta);
+        ArrayList<Archivo> hijos = sistemaArchivos.listarContenidoEnRuta(rutaNorm);
         if (hijos == null) {
             return;
         }
+
         for (Archivo fi : hijos) {
-            if (fi.isEsCarpeta()) {
-                DefaultMutableTreeNode child = new DefaultMutableTreeNode(fi);
-                nodo.add(child);
-                String nuevaRuta = fi.getRutaRelativa();
-                construirArbolRecursivo(child, nuevaRuta);
+            if (!fi.isEsCarpeta()) {
+                continue;
             }
+
+            if (!esAdmin() && (rutaNorm == null || rutaNorm.isEmpty())) {
+                String usuario = (usuarioActual != null) ? usuarioActual.getUsername() : "";
+                if (!fi.getNombre().equalsIgnoreCase(usuario)) {
+                    continue;
+                }
+            }
+
+            DefaultMutableTreeNode child = new DefaultMutableTreeNode(fi);
+            nodo.add(child);
+            String nuevaRuta = rutaNorm.isEmpty() ? fi.getNombre() : rutaNorm + File.separator + fi.getNombre();
+            construirArbolRecursivo(child, nuevaRuta);
         }
     }
 
     private void navegarACarpeta(Archivo carpeta) {
+        if (carpeta == null) {
+            return;
+        }
+
         try {
-            sistemaArchivos.navegarARuta("Z:\\" + carpeta.getRutaRelativa());
-            lblRutaActual.setText(sistemaArchivos.getRutaActual());
+            String rutaRel = normalizeRuta(carpeta.getRutaRelativa());
+            if (rutaRel.isEmpty()) {
+                rutaRel = normalizeRuta(carpeta.getNombre());
+            }
+
+            String rutaAUsar;
+            if (esAdmin()) {
+                rutaAUsar = "Z:\\" + rutaRel;
+            } else {
+                String usuario = (usuarioActual != null) ? usuarioActual.getUsername() : "";
+
+                if (rutaRel.toLowerCase().startsWith(usuario.toLowerCase())) {
+                    rutaAUsar = "Z:\\" + rutaRel;
+                } else {
+                    rutaAUsar = "Z:\\" + usuario + (rutaRel.isEmpty() ? "" : File.separator + rutaRel);
+                }
+            }
+
+            sistemaArchivos.navegarARuta(rutaAUsar);
+            String rutaSis = sistemaArchivos.getRutaActual();
+            if (rutaSis == null || rutaSis.trim().isEmpty()) {
+                lblRutaActual.setText(rutaAUsar);
+            } else {
+                if (!rutaSis.toLowerCase().startsWith("z:\\")) {
+                    lblRutaActual.setText("Z:\\" + rutaSis.replaceFirst("^\\\\+", ""));
+                } else {
+                    lblRutaActual.setText(rutaSis);
+                }
+            }
             cargarTabla();
         } catch (ArchivoNoValidoException e) {
             mostrarError("Error al navegar", e.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            mostrarError("Error al navegar", ex.getMessage());
         }
+
     }
 
     private void cargarTabla() {
         modeloTabla.setRowCount(0);
-        contenidoActual = sistemaArchivos.listarContenido();
-        if (contenidoActual == null) {
-            contenidoActual = new ArrayList<>();
+        archivosMostrados.clear();
+
+        if (esAdmin()) {
+            contenidoActual = sistemaArchivos.listarContenido();
+            lblRutaActual.setText(sistemaArchivos.getRutaActual());
+        } else {
+            String userFolder = usuarioActual != null ? usuarioActual.getUsername() : "";
+            String rutaSis = "";
+            try {
+                rutaSis = sistemaArchivos.getRutaActual();
+            } catch (Exception ignored) {
+            }
+            if (rutaSis != null && rutaSis.toLowerCase().startsWith(("z:\\" + userFolder).toLowerCase())) {
+                contenidoActual = sistemaArchivos.listarContenido();
+                lblRutaActual.setText(rutaSis);
+            } else {
+                contenidoActual = sistemaArchivos.listarContenidoEnRuta(userFolder);
+                lblRutaActual.setText("Z:");
+            }
+            if (contenidoActual == null) {
+                contenidoActual = new ArrayList<>();
+            }
         }
 
         for (Archivo fi : contenidoActual) {
-            Object[] fila = new Object[4];
             if (fi.isEsCarpeta()) {
-                fila[0] = "\u25B6 " + fi.getNombre();
-            } else {
-                fila[0] = fi.getNombre();
+                Object[] fila = new Object[]{"\u25B6 " + fi.getNombre(), "Carpeta de archivos", "", formatearFecha(fi.getFechaModificacion())};
+                modeloTabla.addRow(fila);
+                archivosMostrados.add(fi);
+                continue;
             }
-            fila[1] = fi.isEsCarpeta() ? "Carpeta de archivos" : determinarTipo(obtenerExtension(fi.getNombre()));
-            fila[2] = fi.isEsCarpeta() ? "" : formatearTamanio(fi.getTamanio());
-            fila[3] = formatearFecha(fi.getFechaModificacion());
-            modeloTabla.addRow(fila);
-        }
 
-        lblInfoEstado.setText("Usuario: " + usuarioActual.getUsername() + " | " + contenidoActual.size() + " elemento(s)");
+            String ext = obtenerExtension(fi.getNombre()).toLowerCase();
+            boolean esTxt = ext.equals("txt");
+            boolean esImagen = ext.equals("jpg") || ext.equals("jpeg") || ext.equals("png");
+            boolean esAudio = ext.equals("mp3");
+            if (!(esTxt || esImagen || esAudio)) {
+                continue;
+            }
+
+            String tipo;
+            if (esImagen) {
+                tipo = "Imagen";
+            } else if (esAudio) {
+                tipo = "Audio";
+            } else {
+                tipo = "Documento de texto";
+            }
+
+            Object[] fila = new Object[]{fi.getNombre(), tipo, formatearTamanio(fi.getTamanio()), formatearFecha(fi.getFechaModificacion())};
+            modeloTabla.addRow(fila);
+            archivosMostrados.add(fi);
+        }
+        lblInfoEstado.setText(
+                "Usuario: " + usuarioActual.getUsername() + " | " + archivosMostrados.size() + " elemento(s)"
+        );
     }
 
     private void ordenarTabla() {
@@ -442,48 +530,74 @@ public class NavegadorArchivos extends JFrame {
 
     private void ordenarTabla(boolean ascendente) {
         String opcion = (String) comboOrden.getSelectedItem();
-        ArrayList<Archivo> lista = null;
+        ArrayList<Archivo> lista;
 
         switch (opcion) {
-            case "Nombre":
+            case "Nombre" ->
                 lista = sistemaArchivos.listarOrdenadoPorNombre(ascendente);
-                break;
-            case "Fecha":
+            case "Fecha" ->
                 lista = sistemaArchivos.listarOrdenadoPorFecha(ascendente);
-                break;
-            case "Tipo":
+            case "Tipo" ->
                 lista = sistemaArchivos.listarOrdenadoPorTipo(ascendente);
-                break;
-            case "Tamaño":
+            case "Tamaño" ->
                 lista = sistemaArchivos.listarOrdenadoPorTamanio(ascendente);
-                break;
-            default:
+            default ->
                 lista = sistemaArchivos.listarContenido();
         }
 
         contenidoActual = lista != null ? lista : new ArrayList<>();
         modeloTabla.setRowCount(0);
+        archivosMostrados.clear();
 
         for (Archivo fi : contenidoActual) {
-            Object[] fila = new Object[4];
+
             if (fi.isEsCarpeta()) {
-                fila[0] = "\u25B6 " + fi.getNombre();
-            } else {
-                fila[0] = fi.getNombre();
+                Object[] fila = new Object[]{ "\u25B6 " + fi.getNombre(), "Carpeta de archivos", "",
+                    formatearFecha(fi.getFechaModificacion())
+                };
+                
+                modeloTabla.addRow(fila);
+                archivosMostrados.add(fi);
+                continue;
             }
-            fila[1] = fi.isEsCarpeta() ? "Carpeta de archivos" : determinarTipo(obtenerExtension(fi.getNombre()));
-            fila[2] = fi.isEsCarpeta() ? "" : formatearTamanio(fi.getTamanio());
-            fila[3] = formatearFecha(fi.getFechaModificacion());
+
+            String ext = obtenerExtension(fi.getNombre()).toLowerCase();
+
+            boolean esTxt = ext.equals("txt");
+            boolean esImg = ext.equals("jpg") || ext.equals("jpeg") || ext.equals("png");
+            boolean esAudio = ext.equals("mp3");
+
+            if (!(esTxt || esImg || esAudio)) {
+                continue;
+            }
+
+            String tipo;
+            if (esImg) {
+                tipo = "Imagen";
+            } else if (esAudio) {
+                tipo = "Audio";
+            } else {
+                tipo = "Documento de texto";
+            }
+
+            Object[] fila = new Object[]{
+                fi.getNombre(),
+                tipo,
+                formatearTamanio(fi.getTamanio()),
+                formatearFecha(fi.getFechaModificacion())
+            };
+
             modeloTabla.addRow(fila);
+            archivosMostrados.add(fi);
         }
+
+        lblInfoEstado.setText(
+                "Usuario: " + usuarioActual.getUsername() + " | " + archivosMostrados.size() + " elemento(s)"
+        );
     }
 
     private void crearNuevaCarpeta() {
-        String nombre = JOptionPane.showInputDialog(this,
-                "Nombre de la nueva carpeta:",
-                "Nueva Carpeta",
-                JOptionPane.PLAIN_MESSAGE);
-
+        String nombre = JOptionPane.showInputDialog(this, "Nombre de la nueva carpeta:", "Nueva Carpeta", JOptionPane.PLAIN_MESSAGE);
         if (nombre != null && !nombre.trim().isEmpty()) {
             try {
                 sistemaArchivos.crearCarpeta(nombre.trim());
@@ -495,77 +609,63 @@ public class NavegadorArchivos extends JFrame {
         }
     }
 
- private void subirArchivo() {
-    JFileChooser fileChooser = new JFileChooser();
-    if (fileChooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-        return;
-    }
-    File archivoSeleccionado = fileChooser.getSelectedFile();
-    if (archivoSeleccionado == null || !archivoSeleccionado.exists() || !archivoSeleccionado.isFile()) {
-        mostrarError("Error", "Archivo seleccionado inválido");
-        return;
-    }
-    try {
-        File destinoDir = sistemaArchivos.getDirectorioActualFisico();
-        if (destinoDir == null) {
-            mostrarError("Error", "Directorio destino inválido");
+    private void subirArchivo() {
+        JFileChooser fileChooser = new JFileChooser();
+        if (fileChooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
             return;
         }
-        if (!destinoDir.exists()) {
-            if (!destinoDir.mkdirs()) {
+        File archivoSeleccionado = fileChooser.getSelectedFile();
+        if (archivoSeleccionado == null || !archivoSeleccionado.exists() || !archivoSeleccionado.isFile()) {
+            mostrarError("Error", "Archivo seleccionado inválido");
+            return;
+        }
+        try {
+            File destinoDir = sistemaArchivos.getDirectorioActualFisico();
+            if (destinoDir == null) {
+                mostrarError("Error", "Directorio destino inválido");
+                return;
+            }
+            
+            if (!destinoDir.exists() && !destinoDir.mkdirs()) {
                 mostrarError("Error", "No se pudo crear la carpeta destino: " + destinoDir.getAbsolutePath());
                 return;
             }
-        }
-
-        File destino = new File(destinoDir, archivoSeleccionado.getName());
-
-        // Evitar copiar el mismo archivo (mismo path físico)
-        try {
-            if (archivoSeleccionado.getCanonicalPath().equals(destino.getCanonicalPath())) {
-                mostrarError("Error", "El archivo seleccionado ya está en la carpeta actual.");
+            
+            File destino = new File(destinoDir, archivoSeleccionado.getName());
+            try {
+                if (archivoSeleccionado.getCanonicalPath().equals(destino.getCanonicalPath())) {
+                    mostrarError("Error", "El archivo seleccionado ya está en la carpeta actual.");
+                    return;
+                }
+            } catch (IOException io) {}
+            
+            if (destino.exists()) {
+                mostrarError("Error", "El archivo '" + destino.getName() + "' ya existe en la carpeta actual.");
                 return;
             }
-        } catch (IOException ioe) {
-            // no crítico: seguir con precaución
+            
+            try {
+                Files.copy(archivoSeleccionado.toPath(), destino.toPath(), java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
+            } catch (FileAlreadyExistsException faee) {
+                mostrarError("Error", "El archivo destino ya existe.");
+                return;
+            } catch (IOException io) {
+                mostrarError("Error al copiar archivo", io.getMessage());
+                io.printStackTrace();
+                return;
+            }
+            
+            try {
+                destino.setLastModified(archivoSeleccionado.lastModified());
+            } catch (SecurityException se) {
+            }
+            actualizarVista();
+            mostrarExito("Archivo '" + destino.getName() + "' subido exitosamente");
+        } catch (Exception e) {
+            mostrarError("Error al subir archivo", e.getMessage());
+            e.printStackTrace();
         }
-
-        if (destino.exists()) {
-            mostrarError("Error", "El archivo '" + destino.getName() + "' ya existe en la carpeta actual.");
-            return;
-        }
-
-        // Copia física del archivo (preserva atributos básicos)
-        try {
-            java.nio.file.Files.copy(
-                archivoSeleccionado.toPath(),
-                destino.toPath(),
-                java.nio.file.StandardCopyOption.COPY_ATTRIBUTES
-            );
-        } catch (java.nio.file.FileAlreadyExistsException faee) {
-            mostrarError("Error", "El archivo destino ya existe.");
-            return;
-        } catch (IOException ioe) {
-            mostrarError("Error al copiar archivo", ioe.getMessage());
-            ioe.printStackTrace();
-            return;
-        }
-
-        // Opcional: ajustar fecha modificación del destino a la del origen
-        try {
-            destino.setLastModified(archivoSeleccionado.lastModified());
-        } catch (SecurityException se) {
-            // ignorar si no se puede
-        }
-
-        // Actualizar vista y persistir sistema
-        actualizarVista();
-        mostrarExito("Archivo '" + destino.getName() + "' subido exitosamente");
-    } catch (Exception e) {
-        mostrarError("Error al subir archivo", e.getMessage());
-        e.printStackTrace();
     }
-}
 
     private String obtenerExtension(String nombreArchivo) {
         int ultimoPunto = nombreArchivo.lastIndexOf('.');
@@ -575,48 +675,22 @@ public class NavegadorArchivos extends JFrame {
         return "";
     }
 
-    private String determinarTipo(String extension) {
-        switch (extension) {
-            case "txt":
-                return "Documento de texto";
-            case "jpg":
-            case "jpeg":
-            case "png":
-                return "Imagen";
-            case "mp3":
-                return "Audio";
-            case "pdf":
-                return "PDF";
-            case "docx":
-            case "doc":
-                return "Documento Word";
-            case "xlsx":
-            case "xls":
-                return "Hoja de cálculo";
-            default:
-                return "Archivo " + extension.toUpperCase();
-        }
-    }
-
     private void eliminarSeleccionado() {
         int filaSeleccionada = tablaArchivos.getSelectedRow();
         if (filaSeleccionada == -1) {
             mostrarAdvertencia("Seleccione un elemento para eliminar");
             return;
         }
+
         if (filaSeleccionada >= contenidoActual.size()) {
             return;
         }
 
         Archivo archivo = contenidoActual.get(filaSeleccionada);
         String nombre = archivo.getNombre();
-
         int confirmacion = JOptionPane.showConfirmDialog(this,
                 "¿Está seguro que desea eliminar '" + nombre + "'?",
-                "Confirmar Eliminación",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
+                "Confirmar Eliminación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirmacion == JOptionPane.YES_OPTION) {
             try {
                 sistemaArchivos.eliminar(nombre);
@@ -626,7 +700,6 @@ public class NavegadorArchivos extends JFrame {
                 if (e.getMessage() != null && e.getMessage().contains("no está vacía")) {
                     int r = JOptionPane.showConfirmDialog(this, "La carpeta no está vacía. ¿Eliminar recursivamente?",
                             "Eliminar recursivamente", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
-
                     if (r == JOptionPane.YES_OPTION) {
                         try {
                             sistemaArchivos.eliminar(nombre, true);
@@ -649,25 +722,99 @@ public class NavegadorArchivos extends JFrame {
             mostrarAdvertencia("Seleccione un elemento para renombrar");
             return;
         }
-        if (filaSeleccionada >= contenidoActual.size()) {
+
+        if (filaSeleccionada >= archivosMostrados.size()) {
             return;
         }
 
-        Archivo archivo = contenidoActual.get(filaSeleccionada);
+        Archivo archivo = archivosMostrados.get(filaSeleccionada);
+        if (archivo == null) {
+            return;
+        }
+
         String nombreActual = archivo.getNombre();
-
-        String nombreNuevo = JOptionPane.showInputDialog(this,
-                "Nuevo nombre:",
-                nombreActual);
-
-        if (nombreNuevo != null && !nombreNuevo.trim().isEmpty() && !nombreNuevo.equals(nombreActual)) {
-            try {
-                sistemaArchivos.renombrar(nombreActual, nombreNuevo.trim());
-                actualizarVista();
-                mostrarExito("Elemento renombrado exitosamente");
-            } catch (ArchivoNoValidoException e) {
-                mostrarError("Error al renombrar", e.getMessage());
+        if (archivo.isEsCarpeta()) {
+            String nombreNuevo = JOptionPane.showInputDialog(this, "Nuevo nombre:", nombreActual);
+            if (nombreNuevo != null) {
+                nombreNuevo = nombreNuevo.trim();
+                if (!nombreNuevo.isEmpty() && !nombreNuevo.equals(nombreActual)) {
+                    try {
+                        sistemaArchivos.renombrar(nombreActual, nombreNuevo);
+                        actualizarVista();
+                        mostrarExito("Elemento renombrado exitosamente");
+                    } catch (ArchivoNoValidoException e) {
+                        mostrarError("Error al renombrar", e.getMessage());
+                    }
+                }
             }
+            return;
+        }
+
+        String ext = obtenerExtension(nombreActual);
+        String baseActual = nombreActual;
+        if (!ext.isEmpty()) {
+            baseActual = nombreActual.substring(0, nombreActual.length() - ext.length() - 1); 
+        }
+
+        String entrada = (String) JOptionPane.showInputDialog(
+                this, "Nuevo nombre:", "Renombrar archivo", JOptionPane.PLAIN_MESSAGE,
+                null, null, baseActual);
+
+        if (entrada == null) {
+            return;
+        }
+
+        String nombreNuevo = entrada.trim();
+        if (nombreNuevo.isEmpty()) {
+            mostrarAdvertencia("El nombre no puede estar vacío.");
+            return;
+        }
+
+        int punto = nombreNuevo.lastIndexOf('.');
+        if (punto > 0) {
+            nombreNuevo = nombreNuevo.substring(0, punto);
+        }
+
+        String nombreFinal = nombreNuevo + (ext.isEmpty() ? "" : "." + ext);
+        if (nombreFinal.equals(nombreActual)) {
+            return;
+        }
+
+        try {
+            sistemaArchivos.renombrar(nombreActual, nombreFinal);
+
+            if ("txt".equalsIgnoreCase(ext)) {
+                try {
+                    File dir = sistemaArchivos.getDirectorioActualFisico();
+                    if (dir != null && dir.exists()) {
+                        File oldHtml = new File(dir, baseActual + ".html");
+                        File newHtml = new File(dir, nombreNuevo + ".html");
+
+                        if (oldHtml.exists() && oldHtml.isFile()) {
+                            try {
+                                try {
+                                    Files.move(oldHtml.toPath(), newHtml.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                                } catch (AtomicMoveNotSupportedException ex) {
+                                    Files.move(oldHtml.toPath(), newHtml.toPath());
+                                }
+                            } catch (Exception moveEx) {
+                                moveEx.printStackTrace();
+                            }
+                        }
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            actualizarVista();
+            mostrarExito("Archivo renombrado exitosamente");
+
+        } catch (ArchivoNoValidoException e) {
+            mostrarError("Error al renombrar", e.getMessage());
+        } catch (Exception e) {
+            mostrarError("Error al renombrar", e.getMessage());
         }
     }
 
@@ -676,109 +823,151 @@ public class NavegadorArchivos extends JFrame {
         if (filaSeleccionada == -1) {
             return;
         }
+
         if (filaSeleccionada >= contenidoActual.size()) {
             return;
         }
 
-        Archivo archivo = contenidoActual.get(filaSeleccionada);
+        Archivo archivo = archivosMostrados.get(filaSeleccionada);
+
+        if (archivo == null) {
+            return;
+        }
 
         if (archivo.isEsCarpeta()) {
             navegarACarpeta(archivo);
             return;
         }
 
-        VisorImagenes comprobador = new VisorImagenes(sistemaArchivos, 0);
-        boolean esImg = comprobador.esImagen(archivo);
-
-        if (esImg) {
-            abrirVisorImagenes(archivo);
-        } else {
-            JOptionPane.showMessageDialog(this,
-                    "No hay una aplicación configurada para abrir este tipo de archivo.",
-                    "Archivo no soportado",
-                    JOptionPane.INFORMATION_MESSAGE);
-        }
-    }
-
-    private void abrirVisorImagenes(Archivo archivo) {
-        if (archivo == null) {
-            mostrarError("Error", "Archivo nulo");
-            return;
-        }
-
-        String rutaAbs = archivo.getRutaAbsoluta();
-        if (rutaAbs == null || rutaAbs.trim().isEmpty()) {
+        String rutaAbsoluta = archivo.getRutaAbsoluta();
+        if (rutaAbsoluta == null || rutaAbsoluta.trim().isEmpty()) {
             File dirActual = sistemaArchivos.getDirectorioActualFisico();
             if (dirActual != null) {
                 File posible = new File(dirActual, archivo.getNombre());
-                rutaAbs = posible.getAbsolutePath();
+                rutaAbsoluta = posible.getAbsolutePath();
             }
         }
 
-        File archivoReal = new File(rutaAbs);
-        if (!archivoReal.exists() || !archivoReal.isFile()) {
-            mostrarError("Error", "La imagen no existe en el sistema de archivos real");
+        if (rutaAbsoluta == null || rutaAbsoluta.trim().isEmpty()) {
+            mostrarError("Error", "No se pudo determinar la ruta del archivo");
             return;
         }
 
+        File archivoFisico = new File(rutaAbsoluta);
+        if (!archivoFisico.exists() || !archivoFisico.isFile()) {
+            mostrarError("Error", "El archivo no existe: " + archivo.getNombre());
+            return;
+        }
+
+        String ext = obtenerExtension(archivo.getNombre()).toLowerCase();
         try {
-            GUIVisorImagenes visor = new GUIVisorImagenes(archivoReal);
-            visor.setVisible(true);
+            VisorImagenes comprobador = new VisorImagenes(sistemaArchivos, 0);
+            if (comprobador.esImagen(archivo)) {
+                GUIVisorImagenes visor = new GUIVisorImagenes(archivoFisico);
+                visor.setVisible(true);
+                return;
+            }
         } catch (Exception e) {
-            mostrarError("Error al abrir imagen", e.getMessage());
             e.printStackTrace();
         }
+
+        if ("txt".equalsIgnoreCase(ext)) {
+            try {
+                if (editorTextoInstancia == null || !editorTextoInstancia.isVisible()) {
+                    editorTextoInstancia = new EditorTexto.EditorGUI(this.sistema);
+                }
+                editorTextoInstancia.openFile(archivoFisico);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                mostrarError("Error al abrir en editor", ex.getMessage());
+            }
+            return;
+        }
+
+        if (ext.equals("mp3")) {
+            try {
+                if (reproductorInstancia == null || !reproductorInstancia.isVisible()) {
+                    reproductorInstancia = new ReproductorMusical.GUIReproductorMusica();
+                }
+                reproductorInstancia.reproducirDesdeArchivo(archivoFisico);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                mostrarError("Error al abrir en reproductor", ex.getMessage());
+            }
+            return;
+        }
+
+        mostrarError("No hay aplicación interna", "No hay una aplicación interna registrada para abrir archivos de tipo: "
+                + (ext.isEmpty() ? "(sin extensión)" : ext.toUpperCase()));
     }
 
     private void actualizarVista() {
-        cargarArbol();
-        sistema.guardarSistema();
+        try {
+            cargarArbol();
+            if (sistema != null) {
+                sistema.guardarSistema();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAdvertencia("Advertencia: no se pudo guardar el sistema: " + e.getMessage());
+        }
     }
 
     private String formatearTamanio(long bytes) {
         if (bytes < 1024) {
             return bytes + " B";
         }
+
         double kb = bytes / 1024.0;
         if (kb < 1024) {
             return String.format("%.2f KB", kb);
         }
+
         double mb = kb / 1024.0;
         if (mb < 1024) {
             return String.format("%.2f MB", mb);
         }
+
         double gb = mb / 1024.0;
         return String.format("%.2f GB", gb);
     }
 
-    private String formatearFecha(java.util.Calendar cal) {
+    private String formatearFecha(Calendar cal) {
         return String.format("%02d/%02d/%04d %02d:%02d",
-                cal.get(java.util.Calendar.DAY_OF_MONTH),
-                cal.get(java.util.Calendar.MONTH) + 1,
-                cal.get(java.util.Calendar.YEAR),
-                cal.get(java.util.Calendar.HOUR_OF_DAY),
-                cal.get(java.util.Calendar.MINUTE));
+                cal.get(Calendar.DAY_OF_MONTH),
+                cal.get(Calendar.MONTH) + 1,
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE));
+    }
+
+    private String normalizeRuta(String ruta) {
+        if (ruta == null) {
+            return "";
+        }
+        String r = ruta.trim();
+        r = r.replace('/', File.separatorChar).replace('\\', File.separatorChar);
+
+        if (r.toLowerCase().startsWith("z:")) {
+            r = r.length() > 2 ? r.substring(2) : "";
+        }
+
+        while (r.startsWith(File.separator)) {
+            r = r.substring(1);
+        }
+        return r;
     }
 
     private void mostrarError(String titulo, String mensaje) {
-        JOptionPane.showMessageDialog(this,
-                mensaje,
-                titulo,
-                JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(this, mensaje, titulo, JOptionPane.ERROR_MESSAGE);
     }
 
     private void mostrarAdvertencia(String mensaje) {
-        JOptionPane.showMessageDialog(this,
-                mensaje,
-                "Advertencia",
-                JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(this, mensaje, "Advertencia", JOptionPane.WARNING_MESSAGE);
     }
 
     private void mostrarExito(String mensaje) {
-        JOptionPane.showMessageDialog(this,
-                mensaje,
-                "Éxito",
-                JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, mensaje, "Éxito", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private class RenderizadorArbol implements TreeCellRenderer {
@@ -828,12 +1017,11 @@ public class NavegadorArchivos extends JFrame {
             return new ImageIcon(imagen);
         }
 
-        @Override
         public Component getTreeCellRendererComponent(JTree tree, Object value,
                 boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+
             String textoNodo = "";
             ImageIcon icono = null;
-
             if (value instanceof DefaultMutableTreeNode) {
                 DefaultMutableTreeNode nodo = (DefaultMutableTreeNode) value;
                 Object obj = nodo.getUserObject();
@@ -850,7 +1038,6 @@ public class NavegadorArchivos extends JFrame {
             } else {
                 textoNodo = value.toString();
             }
-
             label.setText(textoNodo);
             label.setIcon(icono);
 
@@ -861,7 +1048,6 @@ public class NavegadorArchivos extends JFrame {
                 label.setBackground(Color.WHITE);
                 label.setForeground(Color.BLACK);
             }
-
             return label;
         }
     }

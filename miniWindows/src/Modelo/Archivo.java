@@ -20,7 +20,7 @@ public class Archivo implements Serializable {
     private String rutaAbsoluta;
 
     public Archivo(String nombre, boolean esCarpeta, long tamanio,
-            java.util.Calendar fechaModificacion, String rutaRelativa, String rutaAbsoluta) {
+          Calendar fechaModificacion, String rutaRelativa, String rutaAbsoluta) {
         this.nombre = nombre;
         this.esCarpeta = esCarpeta;
         this.tamanio = tamanio;

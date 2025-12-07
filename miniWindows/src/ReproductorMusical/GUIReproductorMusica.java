@@ -7,17 +7,20 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.nio.file.*;
+import org.jaudiotagger.audio.*;
 
 /**
  *
  * @author marye
  */
-public class GUIReproductorMusica {
+public class GUIReproductorMusica extends JFrame {
 
     ListaCanciones listaCanciones;
     Reproductor reproductor;
     JList<Cancion> JListaCanciones;
     DefaultListModel<Cancion> listModel;
+
     JButton btnAgregarCancion;
     JLabel lblListaVacia;
 
@@ -29,12 +32,33 @@ public class GUIReproductorMusica {
     }
 
     public void initComponents() {
-        JFrame VReproductorMusica = new JFrame("Reproductor de Música");
-        VReproductorMusica.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        VReproductorMusica.setSize(900, 700);
-        VReproductorMusica.setLocationRelativeTo(null);
-        VReproductorMusica.setLayout(new BorderLayout());
-        VReproductorMusica.getContentPane().setBackground(new Color(18, 18, 18));
+        setTitle("Reproductor de Música");
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setSize(900, 700);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+        getContentPane().setBackground(new Color(18, 18, 18));
+
+        addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                try {
+                    if (reproductor != null) {
+                        reproductor.detenerReproductor();
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            public void windowClosed(WindowEvent e) {
+                try {
+                    if (reproductor != null) {
+                        reproductor.detenerReproductor();
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        });
+
         JPanel panelPrincipal = new JPanel(new BorderLayout());
         panelPrincipal.setBackground(new Color(18, 18, 18));
         JLabel lblTitulo = new JLabel("Biblioteca de Música", SwingConstants.CENTER);
@@ -78,6 +102,7 @@ public class GUIReproductorMusica {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         JPanel panelListaContenedor = new JPanel(new CardLayout());
         panelListaContenedor.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+
         lblListaVacia = new JLabel("No hay canciones en la carpeta Musica", SwingConstants.CENTER);
         lblListaVacia.setForeground(new Color(179, 179, 179));
         lblListaVacia.setFont(new Font("Arial", Font.ITALIC, 16));
@@ -89,7 +114,7 @@ public class GUIReproductorMusica {
 
         btnAgregarCancion = new JButton("Agregar Cancion");
         btnAgregarCancion.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnAgregarCancion.setBackground(new Color(29, 185, 84));
+        btnAgregarCancion.setBackground(new Color(255, 20, 147));
         btnAgregarCancion.setForeground(Color.WHITE);
         btnAgregarCancion.setFocusPainted(false);
         btnAgregarCancion.setBorderPainted(false);
@@ -98,13 +123,14 @@ public class GUIReproductorMusica {
         btnAgregarCancion.setPreferredSize(new Dimension(890, 40));
         btnAgregarCancion.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) {
-                btnAgregarCancion.setBackground(new Color(29, 185, 84).darker());
+                btnAgregarCancion.setBackground(new Color(255, 20, 147).darker());
             }
 
             public void mouseExited(MouseEvent e) {
-                btnAgregarCancion.setBackground(new Color(29, 185, 84));
+                btnAgregarCancion.setBackground(new Color(255, 20, 147));
             }
         });
+
         btnAgregarCancion.addActionListener(e -> agregarCancionSO());
         JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         panelBoton.setBackground(new Color(18, 18, 18));
@@ -120,9 +146,26 @@ public class GUIReproductorMusica {
         panelBarraReproduccion.add(panelBoton);
         panelPrincipal.add(panelBarraReproduccion, BorderLayout.SOUTH);
 
-        VReproductorMusica.add(panelPrincipal);
-        VReproductorMusica.setVisible(true);
+        add(panelPrincipal);
+        setVisible(true);
         actualizarVista();
+    }
+
+    public void reproducirDesdeArchivo(File file) throws Exception {
+        if (file == null || !file.exists() || !file.isFile()) {
+            throw new IllegalArgumentException("Archivo inválido");
+        }
+
+        String name = file.getName().replaceFirst("[.][^.]+$", "");
+        String path = file.getAbsolutePath();
+        Cancion cancion = new Cancion(name, path);
+
+        try {
+            reproductor.cargarCancion(cancion);
+        } catch (Exception ex) {
+        }
+
+        reproductor.play();
     }
 
     private void agregarCancionSO() {
@@ -169,7 +212,7 @@ public class GUIReproductorMusica {
                     continue;
                 }
 
-                java.nio.file.Files.copy(src.toPath(), dest.toPath());
+                Files.copy(src.toPath(), dest.toPath());
 
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -188,6 +231,7 @@ public class GUIReproductorMusica {
             actualizarVista();
             return;
         }
+
         String username = sistema.getUsuarioActual().getUsername();
         File dirMusica = getUserMusicDir(sistema.getSistemaArchivos(), username);
         if (!dirMusica.exists() || !dirMusica.isDirectory()) {
@@ -200,17 +244,12 @@ public class GUIReproductorMusica {
             for (File f : mp3s) {
                 Cancion c = new Cancion(f.getName().replaceFirst("[.][^.]+$", ""), f.getAbsolutePath());
                 try {
-                    reproductor.cargarCancion(c);
-                    if (reproductor.getCancionActual() != null) {
-                        c.setDuracion(reproductor.getCancionActual().getDuracion());
-                    }
+                    AudioFile audioFile = AudioFileIO.read(f);
+                    AudioHeader header = audioFile.getAudioHeader();
+                    int duracionSegundos = header.getTrackLength();
+                    c.setDuracion(duracionSegundos);
                 } catch (Exception e) {
                     c.setDuracion(0);
-                } finally {
-                    try {
-                        reproductor.limpiar();
-                    } catch (Exception ignored) {
-                    }
                 }
                 listaCanciones.agregarListaCanciones(c);
             }
@@ -253,6 +292,7 @@ public class GUIReproductorMusica {
         public Component getListCellRendererComponent(
                 JList<?> list, Object value, int index,
                 boolean isSelected, boolean cellHasFocus) {
+
             if (value instanceof Cancion) {
                 Cancion cancion = (Cancion) value;
                 JPanel panel = new JPanel(new BorderLayout());
@@ -264,6 +304,7 @@ public class GUIReproductorMusica {
                 if (actual != null && actual.equals(cancion)) {
                     isCurrentlyPlaying = true;
                 }
+
                 if (isSelected) {
                     panel.setBackground(new Color(40, 40, 40));
                 } else if (isCurrentlyPlaying) {
@@ -276,10 +317,17 @@ public class GUIReproductorMusica {
                 lblImgDefault.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
                 JPanel panelInfo = new JPanel(new GridLayout(2, 1));
                 panelInfo.setOpaque(false);
+
                 JLabel lblTitulo = new JLabel(cancion.getTitulo());
                 lblTitulo.setFont(new Font("Arial", Font.BOLD, 14));
-                lblTitulo.setForeground((isSelected || isCurrentlyPlaying) ? new Color(29, 185, 84) : Color.WHITE);
+                if (isSelected || isCurrentlyPlaying) {
+                    lblTitulo.setForeground(new Color(255, 182, 193));
+                } else {
+                    lblTitulo.setForeground(Color.white);
+
+                }
                 panelInfo.add(lblTitulo);
+
                 JLabel lblDuracion = new JLabel(cancion.DuracionFormateada());
                 lblDuracion.setForeground(new Color(179, 179, 179));
                 lblDuracion.setFont(new Font("Arial", Font.PLAIN, 12));
@@ -288,6 +336,7 @@ public class GUIReproductorMusica {
                 panel.add(lblImgDefault, BorderLayout.WEST);
                 panel.add(panelInfo, BorderLayout.CENTER);
                 panel.add(lblDuracion, BorderLayout.EAST);
+
                 return panel;
             }
             return super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
